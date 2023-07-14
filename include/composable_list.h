@@ -62,16 +62,44 @@ class Composable_List final {
         return a;
     }
 
-    void visit(const std::function<void(Composable_Function_Holder<T> * n)> & f) {
+    template <typename U = T, typename X = typename std::enable_if<std::is_same<void, U>::value>::type>
+    void visit() {
         for (auto current = iterator, end = list->end(); current != end; current++) {
-            f(*current);
+            if (*current != nullptr) {
+                (*current)->operator()();
+            }
         }
     }
 
-    void visitFromStart(const std::function<void(Composable_Function_Holder<T> * n)> & f) {
+    template <typename U = T, typename X = typename std::enable_if<std::is_same<void, U>::value>::type>
+    void visitFromStart() {
         for (auto current = list->begin(), end = list->end(); current != end; current++) {
-            f(*current);
+            if (*current != nullptr) {
+                (*current)->operator()();
+            }
         }
+    }
+
+    template <typename U = T, typename X = typename std::enable_if<!std::is_same<void, U>::value>::type>
+    U visit(const U & initial_value) {
+        U accumulator = initial_value;
+        for (auto current = iterator, end = list->end(); current != end; current++) {
+            if (*current != nullptr) {
+                accumulator = (*current)->operator()(accumulator);
+            }
+        }
+        return accumulator;
+    }
+
+    template <typename U = T, typename X = typename std::enable_if<!std::is_same<void, U>::value>::type>
+    U visitFromStart(const U & initial_value) {
+        U accumulator = initial_value;
+        for (auto current = list->begin(), end = list->end(); current != end; current++) {
+            if (*current != nullptr) {
+                accumulator = (*current)->operator()(accumulator);
+            }
+        }
+        return accumulator;
     }
 };
 
@@ -191,18 +219,19 @@ class Composable_List_COW final {
         return a;
     }
 
-    void visit(const std::function<void(Composable_Function_Holder<T> * n)> & f) {
+    template <typename U = T, typename X = typename std::enable_if<std::is_same<void, U>::value>::type>
+    void visit() {
         bool can_call = false;
         auto current = list->begin();
         auto current_id = list_ids->begin();
         auto end = list->end();
         while (current != end) {
             if (can_call) {
-                f(*current);
+                (*current)->operator()();
             } else {
                 if (*current_id == id) {
                     can_call = true;
-                    f(*current);
+                    (*current)->operator()();
                 } else {
                     current_id++;
                 }
@@ -211,10 +240,43 @@ class Composable_List_COW final {
         }
     }
 
-    void visitFromStart(const std::function<void(Composable_Function_Holder<T> * n)> & f) {
+    template <typename U = T, typename X = typename std::enable_if<std::is_same<void, U>::value>::type>
+    void visitFromStart() {
         for (auto current = list->begin(), end = list->end(); current != end; current++) {
-            f(*current);
+            (*current)->operator()();
         }
+    }
+
+    template <typename U = T, typename X = typename std::enable_if<!std::is_same<void, U>::value>::type>
+    U visit(const U & initial_value) {
+        U accumulator = initial_value;
+        bool can_call = false;
+        auto current = list->begin();
+        auto current_id = list_ids->begin();
+        auto end = list->end();
+        while (current != end) {
+            if (can_call) {
+                accumulator = (*current)->operator()(accumulator);
+            } else {
+                if (*current_id == id) {
+                    can_call = true;
+                    accumulator = (*current)->operator()(accumulator);
+                } else {
+                    current_id++;
+                }
+            }
+            current++;
+        }
+        return accumulator;
+    }
+
+    template <typename U = T, typename X = typename std::enable_if<!std::is_same<void, U>::value>::type>
+    U visitFromStart(const U & initial_value) {
+        U accumulator = initial_value;
+        for (auto current = list->begin(), end = list->end(); current != end; current++) {
+            accumulator = (*current)->operator()(accumulator);
+        }
+        return accumulator;
     }
 };
 
